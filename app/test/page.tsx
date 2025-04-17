@@ -24,7 +24,7 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow';
 import * as dagre from '@dagrejs/dagre';
-import 'reactflow/dist/style.css';
+import 'reactflow/dist/base.css';
 import { FaPlay, FaStop, FaCog, FaCheck } from 'react-icons/fa';
 
 /* ---------- 1. 공통 스타일 ---------- */
@@ -34,23 +34,19 @@ const customStyles = `
     box-shadow: none !important;
     background: none !important;
   }
-
-  .react-flow__node-default,
-  .react-flow__node-input,
-  .react-flow__node-output,
-  .react-flow__node-group {
-    padding: 0 !important;
-  }
 `;
 
 /* ---------- 2. 커스텀 노드 ---------- */
 interface CustomNodeData {
   label: string;
   description: string;
+  direction: 'LR' | 'TB';
 }
 
 const CustomNode = memo(
   ({ data, isConnectable, type }: NodeProps<CustomNodeData>) => {
+    const { direction } = data;
+
     const getNodeStyle = () => {
       switch (type) {
         case 'input':
@@ -103,29 +99,19 @@ const CustomNode = memo(
     };
 
     const getHandlePosition = (handleType: 'source' | 'target') => {
-      const direction =
-        document.querySelector('.react-flow')?.getAttribute('data-direction') ||
-        'LR';
-
       if (direction === 'TB') {
         return handleType === 'source' ? Position.Bottom : Position.Top;
       }
-
       return handleType === 'source' ? Position.Right : Position.Left;
     };
 
     const getHandleStyle = () => {
-      const direction =
-        document.querySelector('.react-flow')?.getAttribute('data-direction') ||
-        'LR';
-
       if (direction === 'TB') {
         return {
           left: '50%',
           transform: 'translateX(-50%)',
         } as const;
       }
-
       return {
         top: '50%',
         transform: 'translateY(-50%)',
@@ -169,7 +155,25 @@ CustomNode.displayName = 'CustomNode';
 
 /* ---------- 3. 커스텀 엣지 ---------- */
 const calculateLabelWidth = (data: { startLabel?: string }) => {
-  return data?.startLabel ? data.startLabel.length * 7.2 + 16 : 0;
+  if (!data?.startLabel) return 0;
+
+  // 임시 SVG 요소 생성
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  text.textContent = data.startLabel;
+  text.setAttribute('font-size', '12px');
+  text.setAttribute('font-family', 'Arial');
+  svg.appendChild(text);
+  document.body.appendChild(svg);
+
+  // 실제 너비 측정
+  const bbox = text.getBBox();
+  const width = bbox.width + 16; // 패딩 추가
+
+  // 임시 요소 제거
+  document.body.removeChild(svg);
+
+  return width;
 };
 
 const CustomEdge = ({
@@ -273,24 +277,32 @@ const CustomEdge = ({
 };
 
 /* ---------- 4. 초기 데이터 ---------- */
-const initialNodes: Omit<Node<CustomNodeData>, 'position'>[] = [
-  { id: '1', type: 'input', data: { label: '시작', description: 'test' } },
+const baseNodes: Omit<Node<CustomNodeData>, 'position'>[] = [
+  {
+    id: '1',
+    type: 'input',
+    data: { label: '시작', description: 'test', direction: 'LR' },
+  },
   {
     id: '2',
     type: 'custom',
-    data: { label: '프로세스 1', description: 'test' },
+    data: { label: '프로세스 1', description: 'test', direction: 'LR' },
   },
   {
     id: '3',
     type: 'custom',
-    data: { label: '프로세스 2', description: 'test' },
+    data: { label: '프로세스 2', description: 'test', direction: 'LR' },
   },
   {
     id: '4',
     type: 'custom',
-    data: { label: '프로세스 3', description: 'test' },
+    data: { label: '프로세스 3', description: 'test', direction: 'LR' },
   },
-  { id: '5', type: 'output', data: { label: '종료', description: 'test' } },
+  {
+    id: '5',
+    type: 'output',
+    data: { label: '종료', description: 'test', direction: 'LR' },
+  },
 ];
 
 const initialEdges: Edge[] = [
@@ -301,14 +313,13 @@ const initialEdges: Edge[] = [
     target: '3',
     animated: true,
     type: 'start-end',
-    data: { startLabel: '설정' },
   },
   {
     id: 'e2-4',
     source: '3',
     target: '4',
     type: 'start-end',
-    data: { startLabel: '000.000.000.000' },
+    data: { startLabel: 'start edge label' },
   },
   { id: 'e3-4', source: '4', target: '5', label: 'Yes', type: 'straight' },
 ];
@@ -317,16 +328,16 @@ const nodeWidth = 150;
 const nodeHeight = 60;
 
 /* ---------- 5. Dagre 레이아웃 ---------- */
-const getLayoutedElements = (
+function getLayoutedElements(
   nodes: Node<CustomNodeData>[],
   edges: Edge[],
   direction: 'LR' | 'TB' = 'LR'
-) => {
+) {
   const graph = new dagre.graphlib.Graph();
   graph.setDefaultEdgeLabel(() => ({}));
   graph.setGraph({ rankdir: direction });
 
-  // 노드별 시작 레이블 너비 계산
+  /* 라벨 너비 계산 (edge.data.startLabel 기준) */
   const labelMap: Record<string, number> = {};
   edges.forEach((edge) => {
     const text = (edge.data as any)?.startLabel as string | undefined;
@@ -354,7 +365,7 @@ const getLayoutedElements = (
   });
 
   return { nodes: laidOut, edges };
-};
+}
 
 /* ---------- 6. 노드·엣지 타입 ---------- */
 const nodeTypes = {
@@ -370,7 +381,10 @@ const edgeTypes = {
 
 /* ---------- 7. 레이아웃 초기화 ---------- */
 const { nodes: startNodes } = getLayoutedElements(
-  initialNodes.map((n, i) => ({ ...n, position: { x: 0, y: i * 100 } })),
+  baseNodes.map((n, i) => ({
+    ...n,
+    position: { x: 0, y: i * 100 },
+  })),
   initialEdges,
   'LR'
 );
@@ -389,39 +403,45 @@ export default function FlowChartPage() {
 
 /* ---------- 9. FlowChart 컴포넌트 ---------- */
 function FlowChart() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(startNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [layoutDirection, setLayoutDirection] = useState<'LR' | 'TB'>('LR');
+
+  /* 방향 주입 도우미 */
+  const applyDir = (n: Node<CustomNodeData>[], dir: 'LR' | 'TB') =>
+    n.map((node) => ({
+      ...node,
+      data: { ...node.data, direction: dir },
+    }));
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    applyDir(startNodes, 'LR')
+  );
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
   const updateNodeInternals = useUpdateNodeInternals();
   const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
-  // 윈도우 리사이즈 이벤트 핸들러
+  /* 윈도우 리사이즈 → fitView */
   useEffect(() => {
-    const handleResize = () => {
-      if (reactFlowInstance.current) {
-        reactFlowInstance.current.fitView({ padding: 0.2, duration: 0 });
-      }
-    };
-
+    const handleResize = () =>
+      reactFlowInstance.current?.fitView({ padding: 0.2, duration: 0 });
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  /* 레이아웃 전환 */
   const handleLayout = useCallback(
     (dir: 'LR' | 'TB') => {
       setLayoutDirection(dir);
 
-      const updatedEdges = edges.map((edge) => ({
-        ...edge,
+      const updatedNodes = applyDir(nodes, dir);
+      const updatedEdges = edges.map((e) => ({
+        ...e,
         type: 'start-end',
-        data: {
-          ...edge.data,
-          direction: dir,
-        },
+        data: { ...e.data, direction: dir },
       }));
 
       const { nodes: ln, edges: le } = getLayoutedElements(
-        nodes,
+        updatedNodes,
         updatedEdges,
         dir
       );
@@ -430,10 +450,9 @@ function FlowChart() {
 
       ln.forEach((n) => updateNodeInternals(n.id));
 
-      // 다음 프레임에서 중앙 정렬 실행
-      requestAnimationFrame(() => {
-        reactFlowInstance.current?.fitView({ padding: 0.2, duration: 0 });
-      });
+      requestAnimationFrame(() =>
+        reactFlowInstance.current?.fitView({ padding: 0.2, duration: 0 })
+      );
     },
     [edges, nodes, updateNodeInternals]
   );
