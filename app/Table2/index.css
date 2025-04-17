@@ -1,0 +1,19 @@
+table tr td {
+  border: solid;
+}
+
+table thead tr td {
+  background: #ff00003c;
+}
+
+table tbody {
+  display: block;
+  max-height: 500px;
+  overflow-y: scroll;
+}
+
+table thead,
+table tbody tr {
+  display: inline-flex;
+  width: 100%;
+}
