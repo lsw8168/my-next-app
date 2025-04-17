@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, memo, useState } from 'react';
+import { useCallback, memo, useState, useRef, useEffect } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -21,6 +21,7 @@ import ReactFlow, {
   getBezierPath,
   useUpdateNodeInternals,
   type ReactFlowInstance,
+  MarkerType,
 } from 'reactflow';
 import * as dagre from '@dagrejs/dagre';
 import 'reactflow/dist/style.css';
@@ -86,7 +87,7 @@ const CustomNode = memo(
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-    };
+    } as const;
 
     const getIcon = () => {
       switch (type) {
@@ -101,30 +102,34 @@ const CustomNode = memo(
       }
     };
 
-    const getHandlePosition = (type: 'source' | 'target') => {
+    const getHandlePosition = (handleType: 'source' | 'target') => {
       const direction =
         document.querySelector('.react-flow')?.getAttribute('data-direction') ||
         'LR';
+
       if (direction === 'TB') {
-        return type === 'source' ? Position.Bottom : Position.Top;
+        return handleType === 'source' ? Position.Bottom : Position.Top;
       }
-      return type === 'source' ? Position.Right : Position.Left;
+
+      return handleType === 'source' ? Position.Right : Position.Left;
     };
 
     const getHandleStyle = () => {
       const direction =
         document.querySelector('.react-flow')?.getAttribute('data-direction') ||
         'LR';
+
       if (direction === 'TB') {
         return {
           left: '50%',
           transform: 'translateX(-50%)',
-        };
+        } as const;
       }
+
       return {
         top: '50%',
         transform: 'translateY(-50%)',
-      };
+      } as const;
     };
 
     return (
@@ -196,7 +201,7 @@ const CustomEdge = ({
     console.log('Label clicked:', data?.startLabel);
   };
 
-  const labelWidth = calculateLabelWidth(data);
+  const labelWidth = calculateLabelWidth(data || {});
 
   return (
     <>
@@ -206,7 +211,7 @@ const CustomEdge = ({
         style={{
           ...style,
           strokeWidth: 2,
-          stroke: '#b1b1b7',
+          stroke: '#4a5568',
         }}
       />
       <EdgeLabelRenderer>
@@ -287,6 +292,7 @@ const initialNodes: Omit<Node<CustomNodeData>, 'position'>[] = [
   },
   { id: '5', type: 'output', data: { label: '종료', description: 'test' } },
 ];
+
 const initialEdges: Edge[] = [
   { id: 'e1-2', source: '1', target: '2', animated: true, type: 'straight' },
   {
@@ -295,14 +301,14 @@ const initialEdges: Edge[] = [
     target: '3',
     animated: true,
     type: 'start-end',
-    data: { startLabel: '1' },
+    data: { startLabel: '설정' },
   },
   {
     id: 'e2-4',
     source: '3',
     target: '4',
     type: 'start-end',
-    data: { startLabel: 'start edge label' },
+    data: { startLabel: '000.000.000.000' },
   },
   { id: 'e3-4', source: '4', target: '5', label: 'Yes', type: 'straight' },
 ];
@@ -320,17 +326,16 @@ const getLayoutedElements = (
   graph.setDefaultEdgeLabel(() => ({}));
   graph.setGraph({ rankdir: direction });
 
-  // 노드별 startLabel 최대 너비 계산
+  // 노드별 시작 레이블 너비 계산
   const labelMap: Record<string, number> = {};
   edges.forEach((edge) => {
-    const text = edge.data?.startLabel;
+    const text = (edge.data as any)?.startLabel as string | undefined;
     if (text) {
-      const w = text.length * 7.2 + 16;
-      labelMap[edge.source] = Math.max(labelMap[edge.source] || 0, w);
+      const width = text.length * 7.2 + 16;
+      labelMap[edge.source] = Math.max(labelMap[edge.source] || 0, width);
     }
   });
 
-  // 노드 사이즈 설정
   nodes.forEach((n) => {
     const extra = labelMap[n.id] || 0;
     graph.setNode(n.id, { width: nodeWidth + extra, height: nodeHeight });
@@ -339,7 +344,6 @@ const getLayoutedElements = (
   edges.forEach((e) => graph.setEdge(e.source, e.target));
   dagre.layout(graph);
 
-  // 위치 재계산
   const laidOut = nodes.map((n) => {
     const { x, y } = graph.node(n.id);
     const extra = labelMap[n.id] || 0;
@@ -388,13 +392,25 @@ function FlowChart() {
   const [nodes, setNodes, onNodesChange] = useNodesState(startNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [layoutDirection, setLayoutDirection] = useState<'LR' | 'TB'>('LR');
-
-  /* v12: updateNodeInternals 훅 사용 */
   const updateNodeInternals = useUpdateNodeInternals();
+  const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
+
+  // 윈도우 리사이즈 이벤트 핸들러
+  useEffect(() => {
+    const handleResize = () => {
+      if (reactFlowInstance.current) {
+        reactFlowInstance.current.fitView({ padding: 0.2, duration: 0 });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handleLayout = useCallback(
     (dir: 'LR' | 'TB') => {
       setLayoutDirection(dir);
+
       const updatedEdges = edges.map((edge) => ({
         ...edge,
         type: 'start-end',
@@ -403,7 +419,7 @@ function FlowChart() {
           direction: dir,
         },
       }));
-      setEdges(updatedEdges);
+
       const { nodes: ln, edges: le } = getLayoutedElements(
         nodes,
         updatedEdges,
@@ -412,19 +428,14 @@ function FlowChart() {
       setNodes([...ln]);
       setEdges([...le]);
 
-      /* 노드 내부 캐시 강제 갱신 */
       ln.forEach((n) => updateNodeInternals(n.id));
 
-      /* 방향 속성 + fitView */
+      // 다음 프레임에서 중앙 정렬 실행
       requestAnimationFrame(() => {
-        const el = document.querySelector('.react-flow') as HTMLElement & {
-          __reactFlowInstance?: ReactFlowInstance;
-        };
-        el?.setAttribute?.('data-direction', dir);
-        el?.__reactFlowInstance?.fitView();
+        reactFlowInstance.current?.fitView({ padding: 0.2, duration: 0 });
       });
     },
-    [edges, setEdges, nodes, setNodes, updateNodeInternals]
+    [edges, nodes, updateNodeInternals]
   );
 
   return (
@@ -443,8 +454,17 @@ function FlowChart() {
         labelBgStyle: { fill: '#fff', borderRadius: 2 },
         labelBgPadding: [4, 4],
         labelBgBorderRadius: 2,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: '#4a5568',
+          width: 16,
+          height: 16,
+        },
       }}
       data-direction={layoutDirection}
+      onInit={(instance) => {
+        reactFlowInstance.current = instance;
+      }}
     >
       <Controls />
       <MiniMap />
