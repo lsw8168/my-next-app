@@ -22,6 +22,7 @@ import ReactFlow, {
   useUpdateNodeInternals,
   type ReactFlowInstance,
   MarkerType,
+  useReactFlow,
 } from 'reactflow';
 import * as dagre from '@dagrejs/dagre';
 import 'reactflow/dist/base.css';
@@ -106,15 +107,38 @@ const CustomNode = memo(
     };
 
     const getHandleStyle = () => {
-      if (direction === 'TB') {
-        return {
-          left: '50%',
-          transform: 'translateX(-50%)',
-        } as const;
-      }
+      const baseStyle = {
+        width: '8px',
+        height: '8px',
+        borderRadius: '50%',
+        border: '1px solid white',
+        boxShadow: '0 0 2px rgba(0, 0, 0, 0.3)',
+      };
+
+      const colorStyle: Record<string, { background: string }> = {
+        input: {
+          background: '#0369a1',
+        },
+        output: {
+          background: '#b91c1c',
+        },
+        custom: {
+          background: '#15803d',
+        },
+        default: {
+          background: '#333',
+        },
+      };
+
+      const positionStyle =
+        direction === 'TB'
+          ? { left: '50%', transform: 'translateX(-50%)' }
+          : { top: '50%', transform: 'translateY(-50%)' };
+
       return {
-        top: '50%',
-        transform: 'translateY(-50%)',
+        ...baseStyle,
+        ...colorStyle[type],
+        ...positionStyle,
       } as const;
     };
 
@@ -127,7 +151,6 @@ const CustomNode = memo(
             isConnectable={isConnectable}
             style={getHandleStyle()}
           />
-
           <div
             className="font-medium flex items-center"
             style={{ color: getNodeStyle().color }}
@@ -135,7 +158,6 @@ const CustomNode = memo(
             {getIcon()}
             {data.label}
           </div>
-
           <Handle
             type="source"
             position={getHandlePosition('source')}
@@ -143,7 +165,6 @@ const CustomNode = memo(
             style={getHandleStyle()}
           />
         </div>
-
         <div className="mt-1 text-xs text-gray-600 max-w-[150px] text-center">
           {data.description}
         </div>
@@ -213,9 +234,9 @@ const CustomEdge = ({
         path={edgePath}
         markerEnd={markerEnd}
         style={{
-          ...style,
           strokeWidth: 2,
           stroke: '#4a5568',
+          ...style,
         }}
       />
       <EdgeLabelRenderer>
@@ -306,7 +327,23 @@ const baseNodes: Omit<Node<CustomNodeData>, 'position'>[] = [
 ];
 
 const initialEdges: Edge[] = [
-  { id: 'e1-2', source: '1', target: '2', animated: true, type: 'straight' },
+  {
+    id: 'e1-2',
+    source: '1',
+    target: '2',
+    animated: true,
+    type: 'straight',
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      width: 20,
+      height: 20,
+      color: '#FF0072',
+    },
+    style: {
+      strokeWidth: 2,
+      stroke: '#FF0072',
+    },
+  },
   {
     id: 'e1-3',
     source: '2',
@@ -404,6 +441,8 @@ export default function FlowChartPage() {
 /* ---------- 9. FlowChart 컴포넌트 ---------- */
 function FlowChart() {
   const [layoutDirection, setLayoutDirection] = useState<'LR' | 'TB'>('LR');
+  const { zoomTo } = useReactFlow();
+  const [zoomLevel, setZoomLevel] = useState(1);
 
   /* 방향 주입 도우미 */
   const applyDir = (n: Node<CustomNodeData>[], dir: 'LR' | 'TB') =>
@@ -454,8 +493,14 @@ function FlowChart() {
         reactFlowInstance.current?.fitView({ padding: 0.2, duration: 0 })
       );
     },
-    [edges, nodes, updateNodeInternals]
+    [edges, nodes, setEdges, setNodes, updateNodeInternals]
   );
+
+  const handleZoomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newZoom = parseFloat(e.target.value);
+    setZoomLevel(newZoom);
+    zoomTo(newZoom);
+  };
 
   return (
     <ReactFlow
@@ -491,27 +536,44 @@ function FlowChart() {
 
       {/* 레이아웃 토글 */}
       <Panel position="top-right">
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleLayout('LR')}
-            className={`px-4 py-2 rounded ${
-              layoutDirection === 'LR'
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-200 text-gray-700'
-            }`}
-          >
-            가로 정렬
-          </button>
-          <button
-            onClick={() => handleLayout('TB')}
-            className={`px-4 py-2 rounded ${
-              layoutDirection === 'TB'
-                ? 'bg-green-500 text-white'
-                : 'bg-gray-200 text-gray-700'
-            }`}
-          >
-            세로 정렬
-          </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleLayout('LR')}
+              className={`px-4 py-2 rounded ${
+                layoutDirection === 'LR'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              가로 정렬
+            </button>
+            <button
+              onClick={() => handleLayout('TB')}
+              className={`px-4 py-2 rounded ${
+                layoutDirection === 'TB'
+                  ? 'bg-green-500 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}
+            >
+              세로 정렬
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">확대/축소</span>
+            <input
+              type="range"
+              min="0.1"
+              max="2"
+              step="0.1"
+              value={zoomLevel}
+              onChange={handleZoomChange}
+              className="w-32"
+            />
+            <span className="text-sm text-gray-600">
+              {Math.round(zoomLevel * 100)}%
+            </span>
+          </div>
         </div>
       </Panel>
     </ReactFlow>
