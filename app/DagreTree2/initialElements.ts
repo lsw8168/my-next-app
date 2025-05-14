@@ -3,6 +3,130 @@ import { MarkerType } from '@xyflow/react';
 const position = { x: 0, y: 0 };
 const edgeType = 'smoothstep';
 
+const test = {
+  explanation: 1,
+  explanationInfo: '',
+  fileNodes: [
+    {
+      actedThreatScore: 0,
+      actedType: 106,
+      actorNodeUid: 3002253595,
+      actorProcessSha256:
+        'be8718451ebfab63f682b8a7108e159c94ac072ddd12179908413a72868c629b',
+      eventTime: 133884833652250591,
+      isBlocked: 'true',
+      isProcessed: 'false',
+      nodeThreatScore: 100,
+      nodeUid: 1643081024,
+      originalPath: '',
+      path: 'C:\\Users\\Administrator\\Desktop\\default\\ALZip1207.exe',
+      sha256:
+        'a8393387d8f026cfcc274da1fe4d12c69523fb3739d94abecfa483dc4f0b8132',
+      size: 23184504,
+    },
+    {
+      actedThreatScore: 0,
+      actedType: 106,
+      actorNodeUid: 3002253595,
+      actorProcessSha256:
+        'be8718451ebfab63f682b8a7108e159c94ac072ddd12179908413a72868c629b',
+      eventTime: 133884833652155007,
+      isProcessed: 'false',
+      nodeThreatScore: 100,
+      nodeUid: 360404611,
+      originalPath: '',
+      path: 'C:\\Users\\Administrator\\Desktop\\default\\ALZip1207.exe',
+      sha256:
+        'a8393387d8f026cfcc274da1fe4d12c69523fb3739d94abecfa483dc4f0b8132',
+      size: 23184504,
+    },
+    {
+      actedThreatScore: 0,
+      actedType: 106,
+      actorNodeUid: 3002253595,
+      actorProcessSha256:
+        'be8718451ebfab63f682b8a7108e159c94ac072ddd12179908413a72868c629b',
+      eventTime: 133884833652229603,
+      isProcessed: 'false',
+      nodeThreatScore: 100,
+      nodeUid: 224626719,
+      originalPath: '',
+      path: 'C:\\Users\\Administrator\\Desktop\\default\\ALZip1207.exe',
+      sha256:
+        'a8393387d8f026cfcc274da1fe4d12c69523fb3739d94abecfa483dc4f0b8132',
+      size: 23184504,
+    },
+    {
+      actedThreatScore: 0,
+      actedType: 106,
+      actorNodeUid: 3002253595,
+      actorProcessSha256:
+        'be8718451ebfab63f682b8a7108e159c94ac072ddd12179908413a72868c629b',
+      eventTime: 133884833652244262,
+      isProcessed: 'false',
+      nodeThreatScore: 100,
+      nodeUid: 4049730864,
+      originalPath: '',
+      path: 'C:\\Users\\Administrator\\Desktop\\default\\ALZip1207.exe',
+      sha256:
+        'a8393387d8f026cfcc274da1fe4d12c69523fb3739d94abecfa483dc4f0b8132',
+      size: 23184504,
+    },
+    {
+      actedThreatScore: 0,
+      actedType: 106,
+      actorNodeUid: 3002253595,
+      actorProcessSha256:
+        'be8718451ebfab63f682b8a7108e159c94ac072ddd12179908413a72868c629b',
+      eventTime: 133884833652393638,
+      isProcessed: 'false',
+      nodeThreatScore: 100,
+      nodeUid: 3836308470,
+      originalPath: '',
+      path: 'C:\\Users\\Administrator\\Desktop\\default\\ALZip1207.exe',
+      sha256:
+        'a8393387d8f026cfcc274da1fe4d12c69523fb3739d94abecfa483dc4f0b8132',
+      size: 23184504,
+    },
+  ],
+  libraryNodes: [],
+  networkNodes: [],
+  processNodes: [
+    {
+      actedThreatScore: 0,
+      actedType: 1,
+      actorNodeUid: 2336868373,
+      actorProcessSha256: '',
+      commandLine: '"C:\\Program Files\\ESTsoft\\ALYac\\AYCRTSrv.ayc"',
+      eventTime: 133884791201176412,
+      isProcessed: 'false',
+      nodeThreatScore: 0,
+      nodeUid: 3002253595,
+      path: 'C:\\Program Files\\ESTsoft\\ALYac\\AYCRTSrv.ayc',
+      processId: 4644,
+      sha256:
+        'be8718451ebfab63f682b8a7108e159c94ac072ddd12179908413a72868c629b',
+      size: 746872,
+    },
+    {
+      actedThreatScore: 0,
+      actedType: 1,
+      actorNodeUid: 0,
+      actorProcessSha256: '',
+      commandLine: 'C:\\Windows\\system32\\services.exe',
+      eventTime: 0,
+      isProcessed: 'false',
+      nodeThreatScore: 0,
+      nodeUid: 2336868373,
+      path: '',
+      processId: 664,
+      sha256: '',
+      size: 0,
+    },
+  ],
+  registryNodes: [],
+};
+
 export const initialNodes = [
   {
     id: '1',
