@@ -77,15 +77,6 @@ const CustomNode = memo(
       }
     };
 
-    const nodeStyle = {
-      ...getNodeStyle(),
-      width: '120px',
-      height: '40px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as const;
-
     const getIcon = () => {
       switch (type) {
         case 'input':
@@ -142,29 +133,57 @@ const CustomNode = memo(
       } as const;
     };
 
+    // 육각형 SVG 경로 생성 함수
+    const getHexagonPath = () => {
+      const width = 120;
+      const height = 40;
+      const cornerRadius = 10;
+
+      // 육각형의 각 꼭지점 좌표 계산
+      const points = [
+        [cornerRadius, 0], // 상단 왼쪽
+        [width - cornerRadius, 0], // 상단 오른쪽
+        [width, height / 2], // 오른쪽 중앙
+        [width - cornerRadius, height], // 하단 오른쪽
+        [cornerRadius, height], // 하단 왼쪽
+        [0, height / 2], // 왼쪽 중앙
+      ];
+
+      // SVG path 문자열 생성
+      return `M ${points.map((point) => point.join(',')).join(' L ')} Z`;
+    };
+
     return (
       <div className="flex flex-col items-center">
-        <div className="relative rounded-md shadow-md" style={nodeStyle}>
+        <svg width="120" height="40" style={{ position: 'relative' }}>
+          <path
+            d={getHexagonPath()}
+            fill={getNodeStyle().background}
+            stroke={getNodeStyle().border.split(' ')[2]}
+            strokeWidth="1"
+          />
+          <foreignObject x="0" y="0" width="120" height="40">
+            <div
+              className="font-medium flex items-center justify-center h-full"
+              style={{ color: getNodeStyle().color }}
+            >
+              {getIcon()}
+              {data.label}
+            </div>
+          </foreignObject>
           <Handle
             type="target"
             position={getHandlePosition('target')}
             isConnectable={isConnectable}
             style={getHandleStyle()}
           />
-          <div
-            className="font-medium flex items-center"
-            style={{ color: getNodeStyle().color }}
-          >
-            {getIcon()}
-            {data.label}
-          </div>
           <Handle
             type="source"
             position={getHandlePosition('source')}
             isConnectable={isConnectable}
             style={getHandleStyle()}
           />
-        </div>
+        </svg>
         <div className="mt-1 text-xs text-gray-600 max-w-[150px] text-center">
           {data.description}
         </div>

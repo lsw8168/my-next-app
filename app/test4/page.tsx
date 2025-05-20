@@ -79,16 +79,6 @@ const CustomNode = memo(
       }
     };
 
-    // 최종 노드 스타일 객체
-    const nodeStyle = {
-      ...getNodeStyle(),
-      width: '120px', // 너비
-      height: '40px', // 높이
-      display: 'flex',
-      alignItems: 'center', // 수직 중앙 정렬
-      justifyContent: 'center', // 수평 중앙 정렬
-    } as const;
-
     // 노드 타입에 따른 아이콘 반환
     const getIcon = () => {
       switch (type) {
@@ -147,10 +137,28 @@ const CustomNode = memo(
       } as const;
     };
 
+    // 육각형 path 생성 함수
+    function getHexagonPath(width: number, height: number) {
+      const cx = width / 2;
+      const cy = height / 2;
+      let d = '';
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 3) * i - Math.PI / 2;
+        const x = cx + (width / 2) * Math.cos(angle);
+        const y = cy + (height / 2) * Math.sin(angle);
+        d += i === 0 ? `M${x},${y}` : `L${x},${y}`;
+      }
+      d += 'Z';
+      return d;
+    }
+
     return (
       <div className="flex flex-col items-center">
         {/* 노드 본체 */}
-        <div className="relative rounded-md shadow-md" style={nodeStyle}>
+        <div
+          className="relative"
+          style={{ width: '60px', height: '60px', background: '#eee' }}
+        >
           {/* 타겟 핸들 (들어오는 연결) */}
           <Handle
             type="target"
@@ -158,14 +166,52 @@ const CustomNode = memo(
             isConnectable={isConnectable}
             style={getHandleStyle()}
           />
-          {/* 노드 내용 (아이콘 + 레이블) */}
-          <div
-            className="font-medium flex items-center"
-            style={{ color: getNodeStyle().color }}
+          {/* 육각형 SVG */}
+          <svg
+            width="100%"
+            height="100%"
+            viewBox="-4 -4 60 60"
+            style={{ position: 'absolute', top: 0, left: 0 }}
           >
-            {getIcon()}
-            {data.label}
-          </div>
+            <path
+              d={getHexagonPath(52, 52)}
+              fill={getNodeStyle().background}
+              stroke={getNodeStyle().border.split(' ').pop() || '#333'}
+              strokeWidth={2}
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              shapeRendering="geometricPrecision"
+            />
+            <g
+              style={{
+                pointerEvents: 'none',
+                userSelect: 'none',
+              }}
+            >
+              <foreignObject
+                x={0}
+                y={0}
+                width="60"
+                height="60"
+                style={{ overflow: 'visible' }}
+              >
+                <div
+                  className="font-medium flex items-center justify-center"
+                  style={{
+                    color: getNodeStyle().color,
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {getIcon()}
+                  {data.label}
+                </div>
+              </foreignObject>
+            </g>
+          </svg>
           {/* 소스 핸들 (나가는 연결) */}
           <Handle
             type="source"
@@ -434,8 +480,8 @@ const initialEdges: Edge[] = [
   },
 ];
 
-const nodeWidth = 150; // 노드 너비 (레이아웃 계산용)
-const nodeHeight = 60; // 노드 높이 (레이아웃 계산용) + 설명 높이 고려 필요 시 조정
+const nodeWidth = 60;
+const nodeHeight = 60;
 
 /* ---------- 5. Dagre 레이아웃 ---------- */
 // Dagre 라이브러리를 이용한 자동 레이아웃 함수
