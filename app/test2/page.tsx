@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, memo, useState, useRef, useEffect, useMemo } from 'react'; // useMemo 추가
+import { useCallback, memo, useState, useRef, useEffect, useMemo } from 'react';
 import ReactFlow, {
   MiniMap,
   Controls,
@@ -26,7 +26,7 @@ import ReactFlow, {
 } from 'reactflow';
 import * as dagre from '@dagrejs/dagre';
 import 'reactflow/dist/base.css';
-import { FaPlay, FaStop, FaCog, FaCheck } from 'react-icons/fa';
+import { FaPlay, FaStop, FaCog, FaCheck, FaTimes } from 'react-icons/fa';
 
 /* ---------- 1. 공통 스타일 ---------- */
 const customStyles = `
@@ -450,18 +450,31 @@ function getLayoutedElements(
 }
 
 /* ---------- 6. 노드·엣지 타입 ---------- */
-// nodeTypes와 edgeTypes는 컴포넌트 외부의 최상위 레벨에서 정의되었습니다.
-// 이는 React Flow가 권장하는 방식이며, 렌더링 시마다 객체가 재생성되지 않습니다.
-// 따라서 이 부분은 경고의 원인이 아닙니다.
-const nodeTypes = {
+// 기본 타입 정의
+const baseNodeTypes = {
   custom: CustomNode,
   input: CustomNode,
   output: CustomNode,
-  default: CustomNode, // 기본 타입도 CustomNode 사용
+  default: CustomNode,
 };
 
-const edgeTypes = {
-  'start-end': CustomEdge, // 'start-end' 라는 이름으로 CustomEdge 컴포넌트 사용
+const baseEdgeTypes = {
+  'start-end': CustomEdge,
+};
+
+// defaultEdgeOptions도 컴포넌트 외부에서 정의하여 재사용
+const defaultEdgeOptions = {
+  type: 'start-end',
+  labelStyle: { fill: '#333', fontSize: 12 },
+  labelBgStyle: { fill: '#fff', borderRadius: 2 },
+  labelBgPadding: [4, 4] as [number, number],
+  labelBgBorderRadius: 2,
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    color: '#4a5568',
+    width: 16,
+    height: 16,
+  },
 };
 
 /* ---------- 7. 레이아웃 초기화 ---------- */
@@ -493,9 +506,28 @@ export default function FlowChartPage() {
 
 /* ---------- 9. FlowChart 컴포넌트 ---------- */
 function FlowChart() {
-  const [layoutDirection, setLayoutDirection] = useState<'LR' | 'TB'>('LR'); // 현재 레이아웃 방향 상태
-  const { zoomTo } = useReactFlow(); // React Flow 훅 (줌 기능 사용)
-  const [zoomLevel, setZoomLevel] = useState(1); // 현재 줌 레벨 상태
+  const [layoutDirection, setLayoutDirection] = useState<'LR' | 'TB'>('LR');
+  const { zoomTo } = useReactFlow();
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [selectedNode, setSelectedNode] = useState<Node<CustomNodeData> | null>(
+    null
+  );
+
+  // ESC 키 이벤트 핸들러
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && selectedNode) {
+        setSelectedNode(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleEscKey);
+    return () => window.removeEventListener('keydown', handleEscKey);
+  }, [selectedNode]);
+
+  // nodeTypes와 edgeTypes를 useMemo로 메모이제이션
+  const nodeTypes = useMemo(() => baseNodeTypes, []);
+  const edgeTypes = useMemo(() => baseEdgeTypes, []);
 
   // 노드 데이터 배열에 방향 정보 일괄 적용하는 헬퍼 함수
   const applyDirectionToNodes = (
@@ -572,93 +604,125 @@ function FlowChart() {
     zoomTo(newZoom, { duration: 200 }); // 부드럽게 줌 변경
   };
 
-  // defaultEdgeOptions 객체도 렌더링 시마다 재생성될 수 있으므로 useMemo 사용
-  const defaultEdgeOptions = useMemo(
-    () => ({
-      type: 'start-end', // 기본 엣지 타입을 커스텀 엣지로 설정
-      labelStyle: { fill: '#333', fontSize: 12 }, // 기본 레이블 스타일
-      labelBgStyle: { fill: '#fff', borderRadius: 2 }, // 기본 레이블 배경 스타일
-      labelBgPadding: [4, 4] as [number, number], // 기본 레이블 배경 패딩
-      labelBgBorderRadius: 2, // 기본 레이블 배경 모서리 둥글기
-      markerEnd: {
-        // 기본 끝점 마커 (화살표)
-        type: MarkerType.ArrowClosed,
-        color: '#4a5568', // 기본 마커 색상
-        width: 16,
-        height: 16,
-      },
-    }),
-    []
-  ); // 의존성 배열이 비어 있으므로 컴포넌트 마운트 시 한 번만 생성됨
-
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange} // 노드 변경 이벤트 핸들러
-      onEdgesChange={onEdgesChange} // 엣지 변경 이벤트 핸들러
-      // nodeTypes와 edgeTypes는 이미 외부에서 정의되어 안정적입니다.
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      fitView // 초기 렌더링 시 콘텐츠에 맞게 뷰 조정
-      attributionPosition="bottom-right" // React Flow 로고 위치
-      // useMemo로 메모이제이션된 defaultEdgeOptions 사용
-      defaultEdgeOptions={defaultEdgeOptions}
-      data-direction={layoutDirection} // 현재 레이아웃 방향을 DOM 속성으로 전달 (CustomEdge에서 사용)
-      onInit={(instance) => {
-        // React Flow 인스턴스 초기화 시
-        reactFlowInstance.current = instance; // 인스턴스 참조 저장
-      }}
-      // proOptions={{ hideAttribution: true }} // Pro 구독 시 로고 숨기기
-    >
-      <Controls /> {/* 확대/축소, fitView 버튼 컨트롤 */}
-      <MiniMap /> {/* 미니맵 */}
-      <Background variant={BackgroundVariant.Dots} gap={12} size={1} />{' '}
-      {/* 배경 (점 패턴) */}
-      {/* 레이아웃 및 줌 컨트롤 패널 */}
-      <Panel position="top-right">
-        <div className="flex flex-col gap-2 p-2 bg-white rounded shadow-md">
-          {/* 레이아웃 방향 토글 버튼 */}
-          <div className="flex gap-2">
+    <>
+      {/* 상단 드로어 */}
+      <div
+        className={`fixed top-0 left-0 right-0 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50 ${
+          selectedNode ? 'translate-y-0' : '-translate-y-full'
+        }`}
+      >
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              {selectedNode && (
+                <>
+                  <div className="flex items-center">
+                    {selectedNode.type === 'input' && (
+                      <FaPlay className="text-blue-500 mr-2" />
+                    )}
+                    {selectedNode.type === 'output' && (
+                      <FaStop className="text-red-500 mr-2" />
+                    )}
+                    {selectedNode.type === 'custom' && (
+                      <FaCog className="text-green-500 mr-2" />
+                    )}
+                    {selectedNode.type === 'default' && (
+                      <FaCheck className="text-gray-500 mr-2" />
+                    )}
+                    <span className="font-medium">
+                      {selectedNode.data.label}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {selectedNode.data.description}
+                  </div>
+                </>
+              )}
+            </div>
             <button
-              onClick={() => handleLayout('LR')}
-              className={`px-4 py-2 rounded text-sm ${
-                layoutDirection === 'LR'
-                  ? 'bg-blue-500 text-white' // 활성 상태 스타일
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300' // 비활성 상태 스타일
-              }`}
+              onClick={() => setSelectedNode(null)}
+              className="p-2 hover:bg-gray-100 rounded-full"
             >
-              가로 정렬 (LR)
+              <FaTimes className="text-gray-500" />
             </button>
-            <button
-              onClick={() => handleLayout('TB')}
-              className={`px-4 py-2 rounded text-sm ${
-                layoutDirection === 'TB'
-                  ? 'bg-green-500 text-white' // 활성 상태 스타일
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300' // 비활성 상태 스타일
-              }`}
-            >
-              세로 정렬 (TB)
-            </button>
-          </div>
-          {/* 줌 컨트롤 슬라이더 */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">확대/축소:</span>
-            <input
-              type="range" // 범위 슬라이더
-              min="0.1" // 최소 줌
-              max="2" // 최대 줌
-              step="0.05" // 단계
-              value={zoomLevel}
-              onChange={handleZoomChange}
-              className="w-32"
-            />
-            <span className="text-sm text-gray-600 w-10 text-right">
-              {Math.round(zoomLevel * 100)}% {/* 현재 줌 레벨 표시 */}
-            </span>
           </div>
         </div>
-      </Panel>
-    </ReactFlow>
+      </div>
+
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        fitView
+        attributionPosition="bottom-right"
+        defaultEdgeOptions={defaultEdgeOptions}
+        data-direction={layoutDirection}
+        onInit={(instance) => {
+          reactFlowInstance.current = instance;
+        }}
+        onNodeClick={(event, node) => {
+          setSelectedNode(node);
+          console.log('클릭된 노드 정보:', {
+            id: node.id,
+            type: node.type,
+            data: node.data,
+            // position: node.position,
+          });
+        }}
+      >
+        <Controls /> {/* 확대/축소, fitView 버튼 컨트롤 */}
+        <MiniMap /> {/* 미니맵 */}
+        <Background variant={BackgroundVariant.Dots} gap={12} size={1} />{' '}
+        {/* 배경 (점 패턴) */}
+        {/* 레이아웃 및 줌 컨트롤 패널 */}
+        <Panel position="top-right">
+          <div className="flex flex-col gap-2 p-2 bg-white rounded shadow-md">
+            {/* 레이아웃 방향 토글 버튼 */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleLayout('LR')}
+                className={`px-4 py-2 rounded text-sm ${
+                  layoutDirection === 'LR'
+                    ? 'bg-blue-500 text-white' // 활성 상태 스타일
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300' // 비활성 상태 스타일
+                }`}
+              >
+                가로 정렬 (LR)
+              </button>
+              <button
+                onClick={() => handleLayout('TB')}
+                className={`px-4 py-2 rounded text-sm ${
+                  layoutDirection === 'TB'
+                    ? 'bg-green-500 text-white' // 활성 상태 스타일
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300' // 비활성 상태 스타일
+                }`}
+              >
+                세로 정렬 (TB)
+              </button>
+            </div>
+            {/* 줌 컨트롤 슬라이더 */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">확대/축소:</span>
+              <input
+                type="range" // 범위 슬라이더
+                min="0.1" // 최소 줌
+                max="2" // 최대 줌
+                step="0.05" // 단계
+                value={zoomLevel}
+                onChange={handleZoomChange}
+                className="w-32"
+              />
+              <span className="text-sm text-gray-600 w-10 text-right">
+                {Math.round(zoomLevel * 100)}% {/* 현재 줌 레벨 표시 */}
+              </span>
+            </div>
+          </div>
+        </Panel>
+      </ReactFlow>
+    </>
   );
 }
